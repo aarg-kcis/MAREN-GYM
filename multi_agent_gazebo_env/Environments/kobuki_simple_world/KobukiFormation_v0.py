@@ -4,16 +4,18 @@ import numpy as np
 import subprocess as sp
 from copy import deepcopy
 
+import rospy
 from std_srvs.srv import Empty
 from geometry_msgs.msg import Twist
 from gazebo_msgs.msg import ModelState
-
-import rospy
 from tf import TransformListener
 from tf.transformations import euler_from_quaternion as q2e
 from rospy import Publisher, Subscriber, ServiceProxy, Time, Duration
 
-from ..MultiAgentGazeboEnv import MultiAgentGazeboEnv
+sys.path.append('/home/abhay/MAREN-GYM/multi_agent_gazebo_env/Environments')
+from MultiAgentGazeboEnv import MultiAgentGazeboEnv
+
+from gym.spaces import Box
 
 np.set_printoptions(precision=3, linewidth=150, suppress=True)
 class KobukiFormationEnv(MultiAgentGazeboEnv):
@@ -23,9 +25,14 @@ class KobukiFormationEnv(MultiAgentGazeboEnv):
     self.env_path = os.path.dirname(os.path.abspath(__file__))
     super(KobukiFormationEnv, self).__init__()
     self.processes = []
+    self.max_episode_steps = 100
+    self.t_scale_f  = 1/1.
+    self.r_scale_f  = 1/np.pi
     self.agent_envs = [KobukiAgentEnv(self.config["agent_ns"], i, self) \
                         for i in range(self.config["num_agents"])]
     self.init_agent_neighbours()
+    self.action_space = Box(low=-1.0, high=1.0, shape=(2,))
+    self.goal_indices = [0, 1, 7, 8]
     self.action_dim = 2
     self.goal_dim   = 2
     # DEFINE ENV RELATED VARIABLES LIKE ACTION/ OBS SPACE
@@ -38,12 +45,15 @@ class KobukiFormationEnv(MultiAgentGazeboEnv):
       agent_env.reset(poses[agent_id], goals[agent_id])
 
   def sample_goals(self):
-    return {0: {1: [ 0.0 ,    0.75],
+    goal = {0: {1: [ 0.0 ,    0.75],
                 2: [ 0.6495,  0.375]},
             1: {0: [ 0.0,    -0.75],
                 2: [ 0.6495, -0.375]},
             2: {0: [-0.6495, -0.375],
                 1: [-0.6495,  0.375]}}
+    for k, value in goal.items():
+      goal[k] = {n: [x*self.t_scale_f for x in v] for n, v in value.items()}
+    return goal
 
   def close(self):
     self.agent_envs[0].unpause_sim()
@@ -57,10 +67,7 @@ class KobukiFormationEnv(MultiAgentGazeboEnv):
         poses[len(poses)] = rc
     return poses
 
-  # def make_env(self):
-  #   pass
-
-  def get_reward(self, c_state, action, a_state):
+  def get_reward(self, curr_s, action, acq_s):
     pass
 
   def init_agent_neighbours(self):
@@ -68,9 +75,9 @@ class KobukiFormationEnv(MultiAgentGazeboEnv):
       agent.neighbours = [i._id for i in self.agent_envs if \
                           i._id != agent._id]
 
-  def subtract_goals(self, d_goal, a_goal):
-    diff = d_goal - a_goal
-    return np.reshape(diff, -1)
+  # def subtract_goals(self, d_goal, a_goal):
+  #   diff = d_goal - a_goal
+  #   return np.reshape(diff, -1)
 
 class KobukiAgentEnv(object):
   
@@ -85,6 +92,8 @@ class KobukiAgentEnv(object):
     self.tf_listener = TransformListener(False, Duration(5.0))
     self.init_service_proxies()
     self.start_tf_broadcaster()
+    self.t_scale_f  = self.parent.t_scale_f
+    self.r_scale_f  = self.parent.r_scale_f
 
     ## previous velocities
 
@@ -98,8 +107,8 @@ class KobukiAgentEnv(object):
     self.state_pub.publish(reset_state)
     self.pause_sim()
     self.goal = goals
-    for k, val in self.goal.items():
-      self.goal[k] = [i/5. for i in val]
+    print ("I AM AGENT {}".format(self._id))
+    print (self.goal)
     self.previous_act = [0., 0.]
     self.previous_obs = None
 
@@ -115,8 +124,11 @@ class KobukiAgentEnv(object):
       state[nhbr] = Ptransform
     return state
 
-  def scale_obs(self):
-    pass
+  def scale_obs(self, obs):
+    obs = np.array(obs)
+    obs[:2] = np.clip(obs[:2], -1./self.t_scale_f, 1./self.t_scale_f) * self.t_scale_f
+    obs[2]  = obs[2]  * self.r_scale_f
+    return obs
 
   def step(self, action):
     try:
@@ -131,21 +143,21 @@ class KobukiAgentEnv(object):
     return get_obs()
 
   def get_obs(self):
+    self.unpause_sim()
     obs = []
     states = self.get_relative_state()
+    self.pause_sim()
     for neighbour, state in states.items():
-      translation = np.array(np.clip(state[0], a_min=-5., a_max=5.)[:-1])/5.
-      rotation    = np.array(q2e(state[1])[-1])/ np.pi # extract only YAW
+      translation = np.array(state[0])[:-1]
+      rotation    = np.array(q2e(state[1])[-1]) # extract only YAW
+      print (self.goal)
       obs.append(np.hstack([translation, rotation, self.goal[neighbour], self.previous_act]))
-    obs = np.hstack(obs)
+    obs = self.scale_obs(np.hstack(obs))
     self.previous_obs = deepcopy(obs)
     obs = { "observation": self.previous_obs,
-            "achieved_goal": self.get_achieved_goal(),
+            "achieved_goal": self.previous_obs[self.parent.goal_indices],
             "desired_goal": np.hstack(self.goal.values())}
     return obs
-
-  def get_achieved_goal(self):
-    return np.hstack([self.previous_obs[:7][:2], self.previous_obs[7:][:2]])
 
   def init_service_proxies(self):
     self.unpause = ServiceProxy("/gazebo/unpause_physics", Empty)
@@ -153,6 +165,7 @@ class KobukiAgentEnv(object):
     self.reset_proxy = ServiceProxy("/gazebo/reset_simulation", Empty)
 
   def pause_sim(self):
+    return
     rospy.wait_for_service('/gazebo/pause_physics')
     try:
       self.pause()
@@ -160,6 +173,7 @@ class KobukiAgentEnv(object):
       print ("/gazebo/pause_physics service call failed")
 
   def unpause_sim(self):
+    return
     rospy.wait_for_service('/gazebo/unpause_physics')
     try:
       self.unpause()

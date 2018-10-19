@@ -1,11 +1,14 @@
 import os
+import sys
 import gym
 import yaml
 import time
 import rospy
 import numpy as np 
 import subprocess as sp
-from ..Scripts import Utils as U
+
+sys.path.append('/home/abhay/MAREN-GYM/multi_agent_gazebo_env/Scripts')
+import Utils as U
 
 from rosgraph_msgs.msg import Clock
 
