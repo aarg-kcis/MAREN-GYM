@@ -26,7 +26,7 @@ class KobukiFormationEnv(MultiAgentGazeboEnv):
     super(KobukiFormationEnv, self).__init__()
     self.processes = []
     self.max_episode_steps = 100
-    self.t_scale_f  = 1/1.
+    self.t_scale_f  = 1/2.
     self.r_scale_f  = 1/np.pi
     self.agent_envs = [KobukiAgentEnv(self.config["agent_ns"], i, self) \
                         for i in range(self.config["num_agents"])]
@@ -60,6 +60,7 @@ class KobukiFormationEnv(MultiAgentGazeboEnv):
     return [i.kill() for i in self.processes] 
 
   def sample_poses(self):
+    np.random.seed(206)
     poses = {0: [0., 0.]}
     while len(poses) < 3:
       rc = np.random.random(2)
@@ -94,6 +95,8 @@ class KobukiAgentEnv(object):
     self.start_tf_broadcaster()
     self.t_scale_f  = self.parent.t_scale_f
     self.r_scale_f  = self.parent.r_scale_f
+    self.act_low    = np.array([-0.1, -np.pi/4])
+    self.act_high   = np.array([0.25,  np.pi/4])
 
     ## previous velocities
 
@@ -107,8 +110,8 @@ class KobukiAgentEnv(object):
     self.state_pub.publish(reset_state)
     self.pause_sim()
     self.goal = goals
-    print ("I AM AGENT {}".format(self._id))
-    print (self.goal)
+    # print ("I AM AGENT {}".format(self._id))
+    # print (self.goal)
     self.previous_act = [0., 0.]
     self.previous_obs = None
 
@@ -126,13 +129,20 @@ class KobukiAgentEnv(object):
 
   def scale_obs(self, obs):
     obs = np.array(obs)
-    obs[:2] = np.clip(obs[:2], -1./self.t_scale_f, 1./self.t_scale_f) * self.t_scale_f
-    obs[2]  = obs[2]  * self.r_scale_f
+    obs[:2]   = np.clip(obs[:2] , -1./self.t_scale_f, 1./self.t_scale_f) * self.t_scale_f
+    obs[7:9]  = np.clip(obs[7:9], -1./self.t_scale_f, 1./self.t_scale_f) * self.t_scale_f
+    obs[2]    = obs[2]  * self.r_scale_f
+    obs[9]    = obs[9]  * self.r_scale_f
     return obs
 
   def step(self, action):
+    # Scale down actions !!!
+    # -1 is subtracted as it is the lower limit of the current range
+    action = (action -- 1)/2. *(self.act_high-self.act_low) + self.act_low
+
     try:
       self.previous_obs
+      self.previous_act = action
     except:
       print("Can't call step before calling reset() ...")
     self.unpause_sim()
@@ -140,7 +150,7 @@ class KobukiAgentEnv(object):
     vel_cmd.linear.x, vel_cmd.angular.z = action
     self.vel_pub.publish(vel_cmd)
     self.pause_sim()
-    return get_obs()
+    return self.get_obs()
 
   def get_obs(self):
     self.unpause_sim()
@@ -150,7 +160,7 @@ class KobukiAgentEnv(object):
     for neighbour, state in states.items():
       translation = np.array(state[0])[:-1]
       rotation    = np.array(q2e(state[1])[-1]) # extract only YAW
-      print (self.goal)
+      # print (self.goal)
       obs.append(np.hstack([translation, rotation, self.goal[neighbour], self.previous_act]))
     obs = self.scale_obs(np.hstack(obs))
     self.previous_obs = deepcopy(obs)
@@ -164,8 +174,9 @@ class KobukiAgentEnv(object):
     self.pause = ServiceProxy("/gazebo/pause_physics", Empty)
     self.reset_proxy = ServiceProxy("/gazebo/reset_simulation", Empty)
 
-  def pause_sim(self):
-    return
+  def pause_sim(self, t=None):
+    if t == None:
+      return
     rospy.wait_for_service('/gazebo/pause_physics')
     try:
       self.pause()
