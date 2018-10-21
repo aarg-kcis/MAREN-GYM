@@ -26,6 +26,7 @@ class MultiAgentGazeboEnv(gym.Env):
       rospy.logerr("Couldn't receive clock messages from ROSMASTER")
       rospy.logerr("Exception: \n{}".format(e))
       rospy.logerr("Can't proceed ...")
+      sys.exit(-1)
 
   def configure(self):
     try:
