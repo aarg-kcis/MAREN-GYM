@@ -28,7 +28,7 @@ class KobukiFormationEnv(MultiAgentGazeboEnv):
     self.processes = []
     self.max_episode_steps = 100
     self.goal_indices = [0, 1, 6, 7]
-    self.agent_envs = [KobukiAgentEnv(self.config["agent_ns"], i, self) \
+    self.agent_envs = [KobukiPerceivedEnv(self.config["agent_ns"], i, self) \
                         for i in range(self.config["num_agents"])]
     self.init_agent_neighbours()
 
