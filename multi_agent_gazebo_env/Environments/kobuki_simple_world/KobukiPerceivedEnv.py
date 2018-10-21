@@ -18,9 +18,9 @@ from MultiAgentGazeboEnv import MultiAgentGazeboEnv
 from gym.spaces import Box
 
 class KobukiPerceivedEnv(object):
-  v_topic = "{}/mobile_base/commands/velocity"
 
   def __init__(self, model, id, parent):
+    v_topic           = "{}/mobile_base/commands/velocity"
     self.model        = model
     self._id          = id
     self.parent       = parent
@@ -86,7 +86,7 @@ class KobukiPerceivedEnv(object):
       translation = np.array(state[0])[:-1]
       rotation    = np.array(q2e(state[1])[-1]) # extract only YAW
       rotation_v  = np.array([np.cos(rotation), np.sin(rotation)]) # extract only YAW
-      obs.append(np.hstack([translation, rotation, self.previous_act]))
+      obs.append(np.hstack([translation, rotation_v, self.previous_act]))
     self.previous_obs = deepcopy(np.hstack(obs))
     obs = { "observation": self.previous_obs,
             "achieved_goal": self.previous_obs[self.goal_idxs],
@@ -95,6 +95,8 @@ class KobukiPerceivedEnv(object):
 
   def start_tf_broadcaster(self):
     print ("Starting TF Broadcaster for {} ...".format(self.model_name))
-    p = sp.Popen([sys.executable, "{}/KobukiTfBroadcaster.py".format(self.parent.env_path), self.model_name])
+    p = sp.Popen([sys.executable, 
+                  "{}/KobukiTfBroadcaster.py".format(self.parent.env_path), 
+                  self.model_name])
     self.parent.processes.append(p)
     

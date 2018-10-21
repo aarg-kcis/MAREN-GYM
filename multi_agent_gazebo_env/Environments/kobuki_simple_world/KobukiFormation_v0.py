@@ -28,9 +28,11 @@ class KobukiFormationEnv(MultiAgentGazeboEnv):
     self.processes = []
     self.max_episode_steps = 100
     self.goal_indices = [0, 1, 6, 7]
+    self.state_pub  = Publisher("/gazebo/set_model_state", ModelState, queue_size=2)
     self.agent_envs = [KobukiPerceivedEnv(self.config["agent_ns"], i, self) \
                         for i in range(self.config["num_agents"])]
     self.init_agent_neighbours()
+    self.init_service_proxies()
 
   def reset(self):
     poses = self.sample_poses()
