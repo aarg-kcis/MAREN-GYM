@@ -143,7 +143,6 @@ def configure_ddpg(dims, params, reuse=False, use_mpi=True, clip_return=True):
                         'clip_return': (1. / (1. - gamma)) if clip_return else np.inf,  # max abs of return
                         'rollout_batch_size': rollout_batch_size,
                         'subtract_goals': simple_goal_subtract,
-                        'sample_transitions': None,
                         'gamma': gamma,
                         })
     ddpg_params['info'] = {
@@ -158,7 +157,7 @@ def configure_dims(params):
     # env.reset()
     # obs, _, _, info = env.step(env.action_space.sample())
 
-    dims = {'o': 12, 'u': 2, 'g': 4}
+    dims = {'o': 10, 'u': 2, 'g': 4}
     # for key, value in info.items():
     #     value = np.array(value)
     #     if value.ndim == 0:

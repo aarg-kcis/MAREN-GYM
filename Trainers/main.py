@@ -60,13 +60,19 @@ try:
       }
   rollout_worker = RolloutWorker(env.agent_envs, policy, dims, logger, **rollout_params)
   rollout_worker.clear_history()
-  episode = rollout_worker.generate_rollouts()
+  for _ in range(2):
+    episode = rollout_worker.generate_rollouts()
+    print ([i.shape for i in episode.values()])
+  print ([i.shape for i in episode.values()])
   policy.store_episode(episode)
+  for k, v in policy.buffer.sample(80).items():
+    print (k*10)
+    print (v)
 
   # input()
   env.agent_envs[0].pause_sim(t=0)
   print (env.close())
-  np.savetxt(logger.get_dir()+"/obs.csv", episode['o'].reshape((-1,12)), delimiter=",")
+  np.savetxt(logger.get_dir()+"/obs.csv", episode['o'].reshape((-1,10)), delimiter=",")
   np.savetxt(logger.get_dir()+"/ag.csv", episode['ag'].reshape((-1, 4)), delimiter=",")
   np.savetxt(logger.get_dir()+"/goal.csv", episode['g'].reshape((-1, 4)), delimiter=",")
   print ({k: v.shape for k, v in episode.items()})
