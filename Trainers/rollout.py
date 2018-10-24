@@ -106,8 +106,8 @@ class RolloutWorker:
       # compute new states and observations
       curr_o_new = self.universe.step(u)
       o_new, ag_new = curr_o_new['observation'], curr_o_new['achieved_goal']
-      print(o_new)
-      print(ag_new)
+      # print(o_new)
+      # print(ag_new)
       # for i in range(self.rollout_batch_size):
       #   try:
       #     # We fully ignore the reward here because it will have to be re-computed
