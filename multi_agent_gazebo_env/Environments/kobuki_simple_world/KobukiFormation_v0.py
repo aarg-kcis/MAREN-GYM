@@ -22,7 +22,7 @@ np.set_printoptions(precision=5, linewidth=250, suppress=True)
 class KobukiFormationEnv(MultiAgentGazeboEnv):
 
   def __init__(self):
-    self.env_name = "KobukiFormationEnv"
+    self.env_name = "KobukiFormation-v0"
     self.env_path = os.path.dirname(os.path.abspath(__file__))
     super(KobukiFormationEnv, self).__init__()
     self.processes = []
@@ -34,6 +34,7 @@ class KobukiFormationEnv(MultiAgentGazeboEnv):
     self.obs_keys   = ["observation", "desired_goal", "achieved_goal"]
     self.init_agent_neighbours()
     self.init_service_proxies()
+    self.counter = 0
 
   def reset(self):
     poses = self.sample_poses()
@@ -83,9 +84,9 @@ class KobukiFormationEnv(MultiAgentGazeboEnv):
 
   def pause_sim(self, t=None):
     # return
-    print ("*"*150)
+    print ("*"*15)
     print ("SIM PAUSED")
-    print ("*"*150)
+    print ("*"*15)
     rospy.wait_for_service('/gazebo/pause_physics')
     try:
       self.pause()
@@ -94,9 +95,9 @@ class KobukiFormationEnv(MultiAgentGazeboEnv):
 
   def unpause_sim(self):
     # return
-    print ("*"*150)
+    print ("*"*15)
     print ("SIM UNPAUSED")
-    print ("*"*150)
+    print ("*"*15)
     rospy.wait_for_service('/gazebo/unpause_physics')
     try:
       self.unpause()
@@ -104,6 +105,7 @@ class KobukiFormationEnv(MultiAgentGazeboEnv):
       print ("/gazebo/unpause_physics service call failed")
 
   def step(self, actions):
+    self.counter += 1
     obs = []
     self.unpause_sim()
     for agent_env in self.agent_envs:
