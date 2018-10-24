@@ -60,9 +60,9 @@ class KobukiPerceivedEnv(object):
       target_frame = "{}_{}/base_link".format(self.model, nhbr)
       tries = 0
       print ("Waiting for transform b/w {} and {}".format(source_frame, target_frame))
-      self.tf_listener.waitForTransform(source_frame, target_frame, Time(), rospy.Duration(100))
+      self.tf_listener.waitForTransform(source_frame, target_frame, Time(0), rospy.Duration(100))
       print ("Found frame b/w {} and {}".format(source_frame, target_frame))
-      Ptransform = self.tf_listener.lookupTransform(source_frame, target_frame, Time())
+      Ptransform = self.tf_listener.lookupTransform(source_frame, target_frame, Time(0))
       state[nhbr] = Ptransform
     return state
 
@@ -73,6 +73,8 @@ class KobukiPerceivedEnv(object):
       print("Can't call step before calling reset() ...")
     vel_cmd = Twist()
     vel_cmd.linear.x, vel_cmd.angular.z = action
+    # scale actions to their respective ranges
+     
     self.vel_pub.publish(vel_cmd)
     self.previous_act = action
     return self.get_obs()
