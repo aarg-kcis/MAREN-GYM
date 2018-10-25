@@ -8,7 +8,7 @@ from ddpg import DDPG
 
 DEFAULT_ENV_PARAMS = {
     'KobukiFormation-v0': {
-        'n_cycles': 10,
+        'n_cycles': 1,
     },
 }
 
@@ -124,6 +124,9 @@ def simple_goal_subtract(a, b):
     assert a.shape == b.shape
     return a - b
 
+import sys
+sys.path.append('/home/abhay/MAREN-GYM/multi_agent_gazebo_env/Environments/kobuki_simple_world/')
+from KobukiPerceivedEnv import KobukiPerceivedEnv
 
 def configure_ddpg(dims, params, reuse=False, use_mpi=True, clip_return=True):
     # sample_her_transitions = configure_her(params)
@@ -148,7 +151,7 @@ def configure_ddpg(dims, params, reuse=False, use_mpi=True, clip_return=True):
     ddpg_params['info'] = {
         'env_name': params['env_name'],
     }
-    policy = DDPG(reuse=reuse, **ddpg_params, use_mpi=use_mpi)
+    policy = DDPG(reuse=reuse, **ddpg_params, use_mpi=use_mpi, reward_func=KobukiPerceivedEnv.compute_reward)
     return policy
 
 
