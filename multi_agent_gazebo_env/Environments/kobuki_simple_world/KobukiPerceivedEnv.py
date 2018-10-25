@@ -36,6 +36,14 @@ class KobukiPerceivedEnv(object):
     self.unpause_sim  = self.parent.unpause_sim
     self.start_tf_broadcaster()
 
+  @staticmethod
+  def reward(goal, achieved_goal):
+    dist_from_goal1 = np.linalg.norm(goal[:2], achieved_goal[:2]).astype(int)
+    dist_from_goal2 = np.linalg.norm(goal[2:], achieved_goal[2:]).astype(int)
+    reward = dist_from_goal1 + dist_from_goal2
+    reward[reward == 0] = -1
+    return reward
+
   def reset(self, pose, goals):
     # TODO handle reset of ros time?
     reset_state = ModelState()
