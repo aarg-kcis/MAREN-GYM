@@ -37,9 +37,9 @@ class KobukiPerceivedEnv(object):
     self.start_tf_broadcaster()
 
   @staticmethod
-  def reward(goal, achieved_goal):
-    dist_from_goal1 = np.linalg.norm(goal[:2], achieved_goal[:2]).astype(int)
-    dist_from_goal2 = np.linalg.norm(goal[2:], achieved_goal[2:]).astype(int)
+  def compute_reward(ag, g):
+    dist_from_goal1 = (np.linalg.norm((g[:, :2] - ag[:, :2]), axis=-1) < 0.1).astype(int)
+    dist_from_goal2 = (np.linalg.norm((g[:, 2:] - ag[:, 2:]), axis=-1) < 0.1).astype(int)
     reward = dist_from_goal1 + dist_from_goal2
     reward[reward == 0] = -1
     return reward
@@ -67,9 +67,9 @@ class KobukiPerceivedEnv(object):
       source_frame = "{}_{}/base_link".format(self.model, self._id)
       target_frame = "{}_{}/base_link".format(self.model, nhbr)
       tries = 0
-      print ("Waiting for transform b/w {} and {}".format(source_frame, target_frame))
+      # print ("Waiting for transform b/w {} and {}".format(source_frame, target_frame))
       self.tf_listener.waitForTransform(source_frame, target_frame, Time(0), rospy.Duration(100))
-      print ("Found frame b/w {} and {}".format(source_frame, target_frame))
+      # print ("Found frame b/w {} and {}".format(source_frame, target_frame))
       Ptransform = self.tf_listener.lookupTransform(source_frame, target_frame, Time(0))
       state[nhbr] = Ptransform
     return state
