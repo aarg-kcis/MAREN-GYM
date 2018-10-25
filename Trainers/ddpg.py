@@ -22,7 +22,7 @@ class DDPG(object):
     def __init__(self, input_dims, buffer_size, hidden, layers, network_class, polyak, batch_size,
                  Q_lr, pi_lr, norm_eps, norm_clip, max_u, action_l2, clip_obs, scope, T,
                  rollout_batch_size, subtract_goals, relative_goals, clip_pos_returns, clip_return,
-                 gamma, reuse=False, **kwargs):
+                 gamma, reward_func, reuse=False, **kwargs):
         """Implementation of DDPG that is used in combination with Hindsight Experience Replay (HER).
 
         Args:
@@ -85,10 +85,10 @@ class DDPG(object):
             self._create_network(reuse=reuse)
 
         # Configure the replay buffer.
-        buffer_shapes = {key: (self.T if key != 'o' else self.T+1, *input_shapes[key])
+        buffer_shapes = {key: (self.T, *input_shapes[key])
                          for key, val in input_shapes.items()}
         buffer_shapes['g'] = (buffer_shapes['g'][0], self.dimg)
-        buffer_shapes['ag'] = (self.T+1, self.dimg)
+        buffer_shapes['ag'] = (self.T, self.dimg)
 
         buffer_size = (self.buffer_size // self.rollout_batch_size) * self.rollout_batch_size
         self.buffer = ReplayBuffer(buffer_shapes, buffer_size, self.T, self.sample_transitions)
@@ -139,29 +139,20 @@ class DDPG(object):
         else:
             return ret
 
-    def sample_transitions(self, episode_batch, _=None):
-        episode_batch['o_2']    = episode_batch['o'][:, :-1, :]
-        episode_batch['o']      = episode_batch['o'][:, :-1, :]
-        episode_batch['ag_2']   = episode_batch['ag'][:, :-1, :]
-        episode_batch['ag']     = episode_batch['ag'][:, :-1, :]
-        num_normalizing_transitions = transitions_in_episode_batch(episode_batch)
-        T = episode_batch['u'].shape[1]
-        rollout_batch_size = episode_batch['u'].shape[0]
-        batch_size = num_normalizing_transitions
+    def sample_transitions(self, episode_batch, batch_size):
+        transitions = {k: episode_batch[k].reshape(-1, episode_batch[k].shape[-1])
+                       for k in episode_batch.keys()}
 
-        random_idxs = np.where(np.random.uniform(size=batch_size) < 4/5.)
-        her_indexes = [i//T for i in random_idxs], [i% T for i in random_idxs]
-        episode_batch["g"][her_indexes] = episode_batch["ag"][her_indexes]
-        transitions = deepcopy(episode_batch)
-
-        reward_params = {k: transitions[k] for k in ['ag_2', 'g']}
-        # reward_params['info'] = info
-        # insert reward function here ------>>>
-        transitions['r'] = np.ones(transitions['g'].shape)
-        # -----------------------------------------------------
-
-        transitions = {k: transitions[k].reshape(-1, transitions[k].shape[-1])
+        # Select number of transitions eqaual to batch_size
+        T = transitions['u'].shape[0]
+        transitions_idxs = np.random.choice(T, size=batch_size, replace=False)
+        transitions = {k: transitions[k][transitions_idxs, :]
                        for k in transitions.keys()}
+        # selcet transitions for her
+        her_indices = np.where(np.random.uniform(size=batch_size) < 4/5.)
+        transitions["g"][her_indices] = transitions["ag"][her_indices]
+        reward_params = {k: transitions[k] for k in ['ag', 'g']}
+        transitions['r'] = self.reward_func(**reward_params)
         return transitions
 
 
@@ -175,8 +166,8 @@ class DDPG(object):
 
         if update_stats:
             # add transitions to normalizer
-            transitions = self.sample_transitions(episode_batch)
             batch_size = transitions_in_episode_batch(episode_batch)
+            transitions = self.sample_transitions(episode_batch, batch_size)
 
             assert(transitions['u'].shape[0] == batch_size)
 
