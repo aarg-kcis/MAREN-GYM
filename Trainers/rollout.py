@@ -46,16 +46,6 @@ class RolloutWorker:
     self.reset_all_rollouts()
     self.clear_history()
 
-  # def reset_rollout(self, i):
-  #   """Resets the `i`-th rollout environment, re-samples a new goal, and updates the `initial_o`
-  #   and `g` arrays accordingly.
-  #   """
-  #   obs = self.envs[i].get_obs()
-  #   print ("AGENT [{}]:\n{}".format(i, obs))
-  #   self.initial_o[i] = obs['observation']
-  #   self.initial_ag[i] = obs['achieved_goal']
-  #   self.g[i] = obs['desired_goal']
-
   def reset_all_rollouts(self):
     """Resets all `rollout_batch_size` rollout workers.
     """
@@ -63,8 +53,6 @@ class RolloutWorker:
     self.initial_o  = obs['observation'].reshape(self.initial_o.shape)
     self.initial_ag = obs['achieved_goal'].reshape(self.initial_ag.shape)
     self.g          = obs['desired_goal'].reshape(self.g.shape)
-    # for i in range(self.rollout_batch_size):
-    #   self.reset_rollout(i)
 
   def generate_rollouts(self):
     """Performs `rollout_batch_size` rollouts in parallel for time horizon `T` with the current
@@ -106,27 +94,6 @@ class RolloutWorker:
       # compute new states and observations
       curr_o_new = self.universe.step(u)
       o_new, ag_new = curr_o_new['observation'], curr_o_new['achieved_goal']
-      # print(o_new)
-      # print(ag_new)
-      # for i in range(self.rollout_batch_size):
-      #   try:
-      #     # We fully ignore the reward here because it will have to be re-computed
-      #     # for HER.
-      #     curr_o_new = self.envs[i].step(u[i])
-      #     # if 'is_success' in info:
-      #     #   success[i] = info['is_success']
-      #     o_new[i] = curr_o_new['observation']
-      #     ag_new[i] = curr_o_new['achieved_goal']
-      #     # for idx, key in enumerate(self.info_keys):
-      #     #   info_values[idx][t, i] = info[key]
-      #   except Exception as e:
-      #     import traceback as tb
-      #     import sys
-      #     self.logger.warn("Exception occured:\n{}".format(e))
-      #     print (tb.format_exc())
-      #     self.universe.close()
-      #     sys.exit(255)
-      #     return self.generate_rollouts()
 
       if np.isnan(o_new).any():
         self.logger.warn('NaN caught during rollout generation. Trying again...')
@@ -134,16 +101,12 @@ class RolloutWorker:
         return self.generate_rollouts()
 
       obs.append(o.copy())
-      print (o)
-      print (o_new.reshape(o.shape))
       achieved_goals.append(ag.copy())
       # successes.append(success.copy())
       acts.append(u.copy())
       goals.append(self.g.copy())
       o[...] = o_new.reshape(o.shape)
       ag[...] = ag_new.reshape(ag.shape)
-    obs.append(o.copy())
-    achieved_goals.append(ag.copy())
     self.initial_o[:] = o
 
     episode = dict(o=obs,
