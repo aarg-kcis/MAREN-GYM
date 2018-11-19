@@ -36,6 +36,14 @@ class KobukiPerceivedEnv(object):
     self.unpause_sim  = self.parent.unpause_sim
     self.start_tf_broadcaster()
 
+  @staticmethod
+  def compute_reward(ag, g):
+    dist_from_goal1 = (np.linalg.norm((g[:, :2] - ag[:, :2]), axis=-1) < 0.1).astype(int)
+    dist_from_goal2 = (np.linalg.norm((g[:, 2:] - ag[:, 2:]), axis=-1) < 0.1).astype(int)
+    reward = dist_from_goal1 + dist_from_goal2
+    reward[reward == 0] = -1
+    return reward
+
   def reset(self, pose, goals):
     # TODO handle reset of ros time?
     reset_state = ModelState()
@@ -59,10 +67,10 @@ class KobukiPerceivedEnv(object):
       source_frame = "{}_{}/base_link".format(self.model, self._id)
       target_frame = "{}_{}/base_link".format(self.model, nhbr)
       tries = 0
-      print ("Waiting for transform b/w {} and {}".format(source_frame, target_frame))
-      self.tf_listener.waitForTransform(source_frame, target_frame, Time(), rospy.Duration(100))
-      print ("Found frame b/w {} and {}".format(source_frame, target_frame))
-      Ptransform = self.tf_listener.lookupTransform(source_frame, target_frame, Time())
+      # print ("Waiting for transform b/w {} and {}".format(source_frame, target_frame))
+      self.tf_listener.waitForTransform(source_frame, target_frame, Time(0), rospy.Duration(100))
+      # print ("Found frame b/w {} and {}".format(source_frame, target_frame))
+      Ptransform = self.tf_listener.lookupTransform(source_frame, target_frame, Time(0))
       state[nhbr] = Ptransform
     return state
 
@@ -73,6 +81,8 @@ class KobukiPerceivedEnv(object):
       print("Can't call step before calling reset() ...")
     vel_cmd = Twist()
     vel_cmd.linear.x, vel_cmd.angular.z = action
+    # scale actions to their respective ranges
+     
     self.vel_pub.publish(vel_cmd)
     self.previous_act = action
     return self.get_obs()

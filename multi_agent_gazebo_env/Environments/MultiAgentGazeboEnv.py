@@ -18,7 +18,7 @@ class MultiAgentGazeboEnv(gym.Env):
     self.config = self.configure()
     try:
       self.ros_master_uri = os.environ['ROS_MASTER_URI']
-      rospy.init_node(self.env_name)
+      rospy.init_node(self.env_name.replace('-', '_'))
       rospy.loginfo("Waiting for clock from ROSMASTER@[{}]".format(self.ros_master_uri))
       rospy.wait_for_message('/clock', Clock, timeout=10)
       rospy.loginfo("Success ...")

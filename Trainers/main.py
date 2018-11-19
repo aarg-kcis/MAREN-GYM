@@ -21,12 +21,15 @@ sys.path.append(os.getcwd()+"/../")
 sys.path.append('/home/abhay/MAREN-GYM/multi_agent_gazebo_env/Environments/kobuki_simple_world/')
 import multi_agent_gazebo_env
 
+env = gym.make("KobukiFormation-v0")
 #############################################################################
 logger.configure(dir="/tmp/gym-log")
 ddpg_params = dict()
 params = config.DEFAULT_PARAMS
-params["env_name"] = "KobukiFormation-v0"
-params["T"] = 100
+params["env_name"] = env.env_name
+
+
+params["T"] = env.max_episode_steps
 params["gamma"] = 1. - 1./params["T"]
 for name in ['buffer_size', 'hidden', 'layers',
              'network_class',
@@ -45,7 +48,7 @@ with open(os.path.join(logger.get_dir(), 'params.json'), 'w') as f:
 dims = config.configure_dims(params)
 policy = config.configure_ddpg(dims, params)
 #############################################################################
-env = gym.make(params["env_name"])
+
 import traceback as tb
 try:
   rollout_params = {
@@ -60,22 +63,14 @@ try:
       }
   rollout_worker = RolloutWorker(env.agent_envs, policy, dims, logger, **rollout_params)
   rollout_worker.clear_history()
-  for _ in range(2):
+  for _ in range(params['n_cycles']):
     episode = rollout_worker.generate_rollouts()
-    print ([i.shape for i in episode.values()])
-  print ([i.shape for i in episode.values()])
   policy.store_episode(episode)
-  for k, v in policy.buffer.sample(80).items():
-    print (k*10)
-    print (v)
 
-  # input()
-  env.agent_envs[0].pause_sim(t=0)
-  print (env.close())
   np.savetxt(logger.get_dir()+"/obs.csv", episode['o'].reshape((-1,10)), delimiter=",")
   np.savetxt(logger.get_dir()+"/ag.csv", episode['ag'].reshape((-1, 4)), delimiter=",")
   np.savetxt(logger.get_dir()+"/goal.csv", episode['g'].reshape((-1, 4)), delimiter=",")
-  print ({k: v.shape for k, v in episode.items()})
+  # print ({k: v.shape for k, v in episode.items()})
 except Exception as e:
   print (tb.format_exc())
   print (e)
