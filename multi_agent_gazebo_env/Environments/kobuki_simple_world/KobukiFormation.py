@@ -1,5 +1,6 @@
 import os
 import sys
+import time
 import numpy as np
 import subprocess as sp
 from copy import deepcopy
@@ -44,6 +45,7 @@ class KobukiFormationEnv(MultiAgentGazeboEnv):
                            for i in range(self.num_agents)]
         self.init_agent_neighbours()
         self.init_service_proxies()
+        self.pause_sim()
 
 
     def init_agent_neighbours(self):
@@ -57,6 +59,7 @@ class KobukiFormationEnv(MultiAgentGazeboEnv):
         self.reset_proxy = ServiceProxy("/gazebo/reset_simulation", Empty)
 
     def pause_sim(self, t=None):
+        # return
         rospy.wait_for_service('/gazebo/pause_physics')
         try:
             self.pause()
@@ -64,6 +67,7 @@ class KobukiFormationEnv(MultiAgentGazeboEnv):
             print("/gazebo/pause_physics service call failed")
 
     def unpause_sim(self):
+        # return
         rospy.wait_for_service('/gazebo/unpause_physics')
         try:
             self.unpause()
@@ -106,9 +110,9 @@ class KobukiFormationEnv(MultiAgentGazeboEnv):
             reset_state.pose.position.x = poses[agent_env._id][0]
             reset_state.pose.position.y = poses[agent_env._id][1]
             self.state_pub.publish(reset_state)
-        
-        for agent_env in self.agent_envs:
-            obs[agent_env._id] = agent_env.reset(self.goal[1])
+        time.sleep(1)
+        obs = {agent_env._id: agent_env.reset(self.goal[1])
+               for agent_env in self.agent_envs}
 
         sides_ag = sorted([np.linalg.norm(poses[i]-poses[j])
                            for i in poses.keys()
@@ -116,7 +120,7 @@ class KobukiFormationEnv(MultiAgentGazeboEnv):
 
 
         for _id, ob in obs.items():
-            ob["achieved_goal"] = np.hstack([[0., 0.], sides_ag])
+            ob["achieved_goal"] = np.hstack([ob["achieved_goal"], sides_ag])
             ob["desired_goal"] = np.hstack([ob["desired_goal"], self.goal[0]])
 
         self.pause_sim()
@@ -129,16 +133,22 @@ class KobukiFormationEnv(MultiAgentGazeboEnv):
         actions = {agent._id: actions[agent._id]
                    if agent._id in actions.keys() else [0, 0]
                    for agent in self.agent_envs}
-        obs = []
         self.unpause_sim()
-        for agent_env in self.agent_envs:
-            obs.append(agent_env.step(actions[agent_env._id]))
+        obs = {agent_env._id: agent_env.step(actions[agent_env._id])
+               for agent_env in self.agent_envs}
         self.pause_sim()
+        poses = {a._id:a.pose["position"] for a in self.agent_envs}
+        sides_ag = sorted([np.linalg.norm(poses[i]-poses[j])
+                           for i in poses.keys()
+                           for j in poses.keys() if i < j])
+        for _id, ob in obs.items():
+            ob["achieved_goal"] = np.hstack([ob["achieved_goal"], sides_ag])
+            ob["desired_goal"] = np.hstack([ob["desired_goal"], self.goal[0]])
         return obs
 
     def close(self):
-        self.agent_envs[0].unpause_sim()
-        return [i.kill() for i in self.processes]
+        self.unpause_sim()
+        return [env.close() for env in self.agent_envs]
 
     def get_reward(self, curr_s, action, acq_s):
         pass

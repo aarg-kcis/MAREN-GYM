@@ -17,6 +17,9 @@ import gym
 from gym.spaces import Box
 
 
+R = lambda x: np.matrix([[np.cos(x), -np.sin(x)], [np.sin(x), np.cos(x)]])
+
+
 class KobukiEnv(object):
     """ Kobuki Percieved Environment:
     Its the environment as percieved by this kobuki agent.
@@ -30,6 +33,7 @@ class KobukiEnv(object):
                 multi-agent setting
 
     """
+
     def __init__(self, config=None):
         self._id = 0
         self.model = "kobuki"
@@ -48,40 +52,45 @@ class KobukiEnv(object):
 
         self.make_publishers()
         # self.make_subscribers()
-        self.start_tf_broadcaster()
+        self.broadcaster_process = self.start_tf_broadcaster()
         self.tf_listener  = TransformListener(False, Duration(5.0))
 
     def step(self, action):
         if self.prv_act is None:
             print("Call reset before calling step ...")
             return
-        self.prv_transform = self.get_state("world", True)
+        prev_pose = self.pose
         vel_cmd = Twist()
         vel_cmd.linear.x, vel_cmd.angular.z = action
         self.v_pub.publish(vel_cmd)
         self.prv_act = action
-        # transformation from this frame to world frame
-        print(self.prv_transform)
+        self.update_pose()
         obs = {"observation": self.get_obs()}
-        obs.update(self.compute_goal())
+        obs.update(self.compute_goal(prev_pose))
         return obs
 
     def reset(self, goal_point):
         self.prv_obs = None
         self.prv_act = [0. ,0.]
         self.goal_point = goal_point
+        self.update_pose()
         obs = {"observation": self.get_obs()}
         obs.update(self.compute_goal())
         return obs
 
-    def compute_goal(self):
+    def compute_goal(self, prev_pose=None):
         goal = PointStamped()
         goal.header.frame_id = "world"
         goal.header.stamp = rospy.Time(0)
         goal.point.x, goal.point.y = self.goal_point
         goal = self.tf_listener.transformPoint(self.name+"/base_link", goal)
+        if prev_pose is not None:
+            ag = np.matrix(self.pose["position"] - prev_pose["position"])
+            ag = np.array(ag*R(prev_pose["orientation"])).reshape(-1)
+        else:
+            ag = np.zeros(2)
         return {"desired_goal": [goal.point.x, goal.point.y],
-                "achieved_goal": [0., 0.]}
+                "achieved_goal": ag}
 
     def get_state(self, target, transform_only=False):
         topic = "{}/base_link"
@@ -113,6 +122,15 @@ class KobukiEnv(object):
         self.v_pub = Publisher(v_topic.format(self.ns),
                                Twist, queue_size=1)
 
+    def update_pose(self):
+        pose = rospy.wait_for_message("{}/ground_truth_pose"
+                    .format(self.ns), Odometry).pose.pose
+        position = np.array([pose.position.x, pose.position.y])
+        o = pose.orientation
+        yaw = q2e([o.x, o.y, o.z, o.w])[-1]
+        self.pose = {"position": position, "orientation": yaw}
+        # print(self.pose)
+
     def make_subscribers(self):
         pose_topic = "/{}/ground_truth_pose"
         Subscriber(pose_topic.format(self.name),
@@ -127,3 +145,8 @@ class KobukiEnv(object):
                      (os.path.realpath(__file__))), 
                       self.name])
         return p
+
+    def close(self):
+        self.broadcaster_process.kill()
+        print("Closing {}".format(self.name))
+
