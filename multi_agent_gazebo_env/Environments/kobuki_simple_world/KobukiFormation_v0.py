@@ -11,13 +11,12 @@ from gazebo_msgs.msg import ModelState
 from tf import TransformListener
 from tf.transformations import euler_from_quaternion as q2e
 from rospy import Publisher, Subscriber, ServiceProxy, Time, Duration
-
-sys.path.append('/home/abhay/MAREN-GYM/multi_agent_gazebo_env/Environments')
-from MultiAgentGazeboEnv import MultiAgentGazeboEnv
-
 from gym.spaces import Box
+from .MultiAgentGazeboEnv import MultiAgentGazeboEnv
 
 np.set_printoptions(precision=3, linewidth=150, suppress=True)
+
+
 class KobukiFormationEnv(MultiAgentGazeboEnv):
 
   def __init__(self):
