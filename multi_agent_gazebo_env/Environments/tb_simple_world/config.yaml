@@ -1,0 +1,47 @@
+node_name: GazeboEnvNode2112
+agents:
+    waffle:
+        num_agents: 2
+        agent_class: GazeboTurtleBotAgent
+        action_spaces:
+            velocity:
+                topic: $NS/cmd_vel
+                set:
+                    - linear.x
+                    - angular.z
+                space:
+                    type: Box
+                    size: 2
+                    low:
+                        linear.x: -0.1
+                        angular.z: -0.7854
+                    high:
+                        linear.x: 0.3
+                        angular.z: 0.7854
+                queue_size: 10
+
+        observation_spaces:
+            laserscan:
+                space:
+                    type: Box
+                    size: 1800
+                    low:  0
+                    high: 1
+                topic: $NS/scan
+                store:
+                    - ranges
+
+            gt_pose:
+                space:
+                    type: Box
+                    size: 6
+                    low: -10
+                    high: 10
+                topic: $NS/ground_truth_pose
+                store:
+                    - pose.pose.position.x
+                    - pose.pose.position.y
+                    - pose.pose.orientation.x
+                    - pose.pose.orientation.y
+                    - pose.pose.orientation.z
+                    - pose.pose.orientation.w

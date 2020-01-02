@@ -1,0 +1,20 @@
+digraph G {
+"waffle_2/odom" -> "waffle_2/base_footprint"[label="Broadcaster: /gazebo\nAverage rate: 10000.000 Hz\nMost recent transform: 0.000 ( 2594.653 sec old)\nBuffer length: 0.000 sec\n"];
+"waffle_1/odom" -> "waffle_1/base_footprint"[label="Broadcaster: /gazebo\nAverage rate: 10000.000 Hz\nMost recent transform: 0.000 ( 2594.653 sec old)\nBuffer length: 0.000 sec\n"];
+edge [style=invis];
+ subgraph cluster_legend { style=bold; color=black; label ="view_frames Result";
+"Recorded at time: 2594.653"[ shape=plaintext ] ;
+ }->"waffle_2/base_link";
+edge [style=invis];
+ subgraph cluster_legend { style=bold; color=black; label ="view_frames Result";
+"Recorded at time: 2594.653"[ shape=plaintext ] ;
+ }->"waffle_1/base_link";
+edge [style=invis];
+ subgraph cluster_legend { style=bold; color=black; label ="view_frames Result";
+"Recorded at time: 2594.653"[ shape=plaintext ] ;
+ }->"waffle_1/odom";
+edge [style=invis];
+ subgraph cluster_legend { style=bold; color=black; label ="view_frames Result";
+"Recorded at time: 2594.653"[ shape=plaintext ] ;
+ }->"waffle_2/odom";
+}
